@@ -19,7 +19,7 @@ import torch
 import torch.nn as nn
 
 from torch.nn.parallel import DistributedDataParallel
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from diffwave.dataset import from_path, from_gtzan
@@ -110,8 +110,9 @@ class DiffWaveLearner:
           raise RuntimeError(f'Detected NaN loss at step {self.step}.')
         if self.is_master:
           if self.step % 50 == 0:
-            self._write_summary(self.step, features, loss)
-          if self.step % len(self.dataset) == 0:
+            print("Summary", loss)
+            #self._write_summary(self.step, , loss)
+          if self.step % 200 == 0:
             self.save_to_checkpoint()
         self.step += 1
 
@@ -143,18 +144,18 @@ class DiffWaveLearner:
     self.scaler.update()
     return loss
 
-  def _write_summary(self, step, features, loss):
-    writer = self.summary_writer or SummaryWriter(self.model_dir, purge_step=step)
-    writer.add_audio('feature/audio', features['audio'][0], step, sample_rate=self.params.sample_rate)
-    if not self.params.unconditional:
-      writer.add_image('feature/spectrogram', torch.flip(features['spectrogram'][:1], [1]), step)
-    writer.add_scalar('train/loss', loss, step)
-    writer.add_scalar('train/grad_norm', self.grad_norm, step)
-    writer.flush()
-    self.summary_writer = writer
+  # def _write_summary(self, step, features, loss):
+  #   writer = self.summary_writer or SummaryWriter(self.model_dir, purge_step=step)
+  #   writer.add_audio('feature/audio', features['audio'][0], step, sample_rate=self.params.sample_rate)
+  #   if not self.params.unconditional:
+  #     writer.add_image('feature/spectrogram', torch.flip(features['spectrogram'][:1], [1]), step)
+  #   writer.add_scalar('train/loss', loss, step)
+  #   writer.add_scalar('train/grad_norm', self.grad_norm, step)
+  #   writer.flush()
+  #   self.summary_writer = writer
 
 
-def _train_impl(replica_id, model, dataset, args, params):
+def _train_impl0(replica_id, model, dataset, args, params):
   torch.backends.cudnn.benchmark = True
   opt = torch.optim.Adam(model.parameters(), lr=params.learning_rate)
 
@@ -162,15 +163,29 @@ def _train_impl(replica_id, model, dataset, args, params):
   learner.is_master = (replica_id == 0)
   learner.restore_from_checkpoint()
   learner.train(max_steps=args.max_steps)
+  
+def _train_impl(replica_id, model, dataset, args, params):
+  torch.backends.cudnn.benchmark = True
+  opt = torch.optim.Adam(model.parameters(), lr=params.learning_rate)
+
+  learner = DiffWaveLearner(args["model_dir"], model, dataset, opt, params, fp16=False)
+  learner.is_master = (replica_id == 0)
+  print("Restored from chkpnt", learner.restore_from_checkpoint())
+  learner.train(max_steps=args["max_steps"]) 
 
 
-def train(args, params):
+def train0(args, params):
   if args.data_dirs[0] == 'gtzan':
     dataset = from_gtzan(params)
   else:
     dataset = from_path(args.data_dirs, params)
   model = DiffWave(params).cuda()
   _train_impl(0, model, dataset, args, params)
+  
+def train(args, params):
+    dataset = from_path(args["data_dirs"], params)
+    model = DiffWave(params).cuda()
+    _train_impl(0, model, dataset, args, params)
 
 
 def train_distributed(replica_id, replica_count, port, args, params):

@@ -52,12 +52,17 @@ def transform(filename):
     np.save(f'{filename}.spec.npy', spectrogram.cpu().numpy())
 
 
-def main(args):
-  filenames = glob(f'{args.dir}/**/*.wav', recursive=True)
-  with ProcessPoolExecutor() as executor:
-    list(tqdm(executor.map(transform, filenames), desc='Preprocessing', total=len(filenames)))
+def main(dirr, mode="safe"):
+  #mode = "safe", "fast"
+  filenames = glob(f'{dirr}/**/*.wav', recursive=True)
+  if(mode=="safe"):
+      for f in filenames:
+          transform(f)
+  elif(mode=="fast"):
+      with ProcessPoolExecutor() as executor:
+        list(tqdm(executor.map(transform, filenames), desc='Preprocessing', total=len(filenames)))
 
-
+#%%
 if __name__ == '__main__':
   parser = ArgumentParser(description='prepares a dataset to train DiffWave')
   parser.add_argument('dir',
