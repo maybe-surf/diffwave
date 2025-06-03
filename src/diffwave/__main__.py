@@ -39,9 +39,9 @@ def main0(args, force_safe=True):
     train(args, params)
 
 args={}
-args["data_dirs"] = ["C:/Users/Owner/codez/CSE153/a2/data/nsynth-valid.jsonwav/nsynth-valid/audio1"]
-args["model_dir"] = "C:/Users/Owner/codez/diffwave00/diffwave/model1"
-args["max_steps"] =5000
+args["data_dirs"] = ["C:/Users/Owner/codez/CSE153/a2/data/nsynth-train.jsonwav/nsynth-train/audio1"]
+args["model_dir"] = "C:/Users/Owner/codez/diffwave00/diffwave/model2"
+args["max_steps"] = 20000
 
 #%%
 import numpy as np
